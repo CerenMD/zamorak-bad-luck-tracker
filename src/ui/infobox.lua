@@ -4,14 +4,25 @@ local gameArea = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__GAME_AREA)
 
 local InfoBox = {}
 
-InfoBox.dryStreak = PersistentDB:GetInt("DRY_STREAK") or 0
-InfoBox.blmTracker = PersistentDB:GetInt("BLM_TRACKER") or 0
-InfoBox.uniqueRecieved = PersistentDB:GetInt("UNIQUE_RECEIVED") or 0
-InfoBox.isOpen = (PersistentDB:CheckExistsTyped("IS_OPEN", 0) and PersistentDB:GetBool("IS_OPEN")) or not PersistentDB:CheckExistsTyped("IS_OPEN", 0)
+-- Initiates user trackingAccess by retrieving the player's tracking ID.
+InfoBox.userData = {
+    dryStreak = 0,
+    blmTracker = 0,
+    uniqueRecieved = 0
+}
+InfoBox.trackingID = Player.GetTrackingID()
 
-InfoBox.CompactDirection = PersistentDB:GetString("COMPACT_DIRECTION") or "topLeft"
-InfoBox.ChanceDisplay = PersistentDB:GetString("CHANCE_DISPLAY") or "percent"
-InfoBox.ToggleOption = PersistentDB:GetString("TOGGLE_DISPLAY_OPTION") or "off"
+if (InfoBox.trackingID ~= nil) then
+    InfoBox.userData = PersistentDB:GetStructuredData("USERDATA_" .. InfoBox.trackingID) or InfoBox.userData
+else
+    InfoBox.userData = PersistentDB:GetStructuredData("USERDATA_SHARED") or InfoBox.userData
+end
+
+-- Initializes the InfoBox settings
+InfoBox.isOpen = (PersistentDB:CheckExistsTyped("IS_OPEN", 0) and PersistentDB:GetBool("IS_OPEN")) or not PersistentDB:CheckExistsTyped("IS_OPEN", 0)
+InfoBox.compactDirection = PersistentDB:GetString("COMPACT_DIRECTION") or "topLeft"
+InfoBox.chanceDisplay = PersistentDB:GetString("CHANCE_DISPLAY") or "percent"
+InfoBox.toggleOption = PersistentDB:GetString("TOGGLE_DISPLAY_OPTION") or "off"
 
 --- Get the rate info for a given enrage value.
 ---@param enrage number The enrage value to get the rate info for.
@@ -32,11 +43,11 @@ end
 --- @param toggle boolean If true, toggles the display mode; otherwise, updates the display based on the current mode.
 InfoBox.ToggleChanceDisplay = function(toggle)
     local rateInfo = getRateInfo(var.VarPlayer.DUNGEON_PROGRESS_BOSS_ENRAGE.value)
-    local demoninator = math.max(rateInfo.initial - InfoBox.blmTracker, rateInfo.cap)
+    local demoninator = math.max(rateInfo.initial - InfoBox.userData.blmTracker, rateInfo.cap)
     local percentChance = 1 / demoninator
-    if (toggle and InfoBox.ChanceDisplay == "percent") or (not toggle and InfoBox.ChanceDisplay == "fraction") then
-        InfoBox.ChanceDisplay = "fraction"
-        PersistentDB:SetString("CHANCE_DISPLAY", InfoBox.ChanceDisplay)
+    if (toggle and InfoBox.chanceDisplay == "percent") or (not toggle and InfoBox.chanceDisplay == "fraction") then
+        InfoBox.chanceDisplay = "fraction"
+        PersistentDB:SetString("CHANCE_DISPLAY", InfoBox.chanceDisplay)
         InfoBox.SettingsWindow.Refresh()
         if InfoBox.isOpen then
             InfoBox.SimpleView.OverlayPanel.children[3].value.content = string.format("1/%d", demoninator)
@@ -44,8 +55,8 @@ InfoBox.ToggleChanceDisplay = function(toggle)
             InfoBox.SimpleView.OverlayPanel.children[1].value.content = string.format("1/%d", demoninator)
         end
     else
-        InfoBox.ChanceDisplay = "percent"
-        PersistentDB:SetString("CHANCE_DISPLAY", InfoBox.ChanceDisplay)
+        InfoBox.chanceDisplay = "percent"
+        PersistentDB:SetString("CHANCE_DISPLAY", InfoBox.chanceDisplay)
         InfoBox.SettingsWindow.Refresh()
         if InfoBox.isOpen then
             InfoBox.SimpleView.OverlayPanel.children[3].value.content = string.format("%.2g%%", percentChance * 100)
@@ -333,19 +344,19 @@ local function ResizeAction(parent, element, clickBox, toggleButton)
         local trueDeltaW, trueDeltaH = newW - width, newY - height
 
         element.root:SetSize(newW, newY)
-        element.root:SetPos(posX - Refs.DIRECTION_TABLE[InfoBox.CompactDirection].x * trueDeltaW, posY - Refs.DIRECTION_TABLE[InfoBox.CompactDirection].y * trueDeltaH)
+        element.root:SetPos(posX - Refs.DIRECTION_TABLE[InfoBox.compactDirection].x * trueDeltaW, posY - Refs.DIRECTION_TABLE[InfoBox.compactDirection].y * trueDeltaH)
         clickBox:SetSize(newW, newY)
         clickBox:SetPos(
-            parent.root.x + posX - Refs.DIRECTION_TABLE[InfoBox.CompactDirection].x * trueDeltaW,
-            parent.root.y + posY - Refs.DIRECTION_TABLE[InfoBox.CompactDirection].y * trueDeltaH
+            parent.root.x + posX - Refs.DIRECTION_TABLE[InfoBox.compactDirection].x * trueDeltaW,
+            parent.root.y + posY - Refs.DIRECTION_TABLE[InfoBox.compactDirection].y * trueDeltaH
         )
         --toggleButton.root:SetPos(
-        --    Refs.DIRECTION_TABLE[InfoBox.CompactDirection].x * (parent.root.width - clickBox.width - 8) + clickBox.width - 16,
-        --    Refs.DIRECTION_TABLE[InfoBox.CompactDirection].y * (parent.root.height - clickBox.height - 8) - 4
+        --    Refs.DIRECTION_TABLE[InfoBox.compactDirection].x * (parent.root.width - clickBox.width - 8) + clickBox.width - 16,
+        --    Refs.DIRECTION_TABLE[InfoBox.compactDirection].y * (parent.root.height - clickBox.height - 8) - 4
         --)
         toggleButton:SetPos(
-            Refs.DIRECTION_TABLE[InfoBox.CompactDirection].x * (parent.root.width - clickBox.width - 8) + clickBox.width - 16,
-            Refs.DIRECTION_TABLE[InfoBox.CompactDirection].y * (parent.root.height - clickBox.height - 8) - 4
+            Refs.DIRECTION_TABLE[InfoBox.compactDirection].x * (parent.root.width - clickBox.width - 8) + clickBox.width - 16,
+            Refs.DIRECTION_TABLE[InfoBox.compactDirection].y * (parent.root.height - clickBox.height - 8) - 4
         )
     end
 
@@ -387,26 +398,26 @@ InfoBox.RefreshText = function()
     local SIZE = InfoBox.isOpen and Refs.SIZES["FULL"] or Refs.SIZES["COMPACT"]
 
     local rateInfo = getRateInfo(var.VarPlayer.DUNGEON_PROGRESS_BOSS_ENRAGE.value)
-    local demoninator = math.max(rateInfo.initial - InfoBox.blmTracker, rateInfo.cap)
+    local demoninator = math.max(rateInfo.initial - InfoBox.userData.blmTracker, rateInfo.cap)
     local percentChance = 1 / demoninator
 
-    local dryStreakValue = string.format("%d", InfoBox.dryStreak)
-    local uniqueChanceValue = InfoBox.ChanceDisplay == "percent" and string.format("%.2g%%", percentChance * 100) or string.format("1/%d", demoninator)
+    local dryStreakValue = string.format("%d", InfoBox.userData.dryStreak)
+    local uniqueChanceValue = InfoBox.chanceDisplay == "percent" and string.format("%.2g%%", percentChance * 100) or string.format("1/%d", demoninator)
 
     if InfoBox.isOpen then 
         table.insert(InfoBox.SimpleView.OverlayPanel.children, drawTitleRow("Zamorak Bad Luck", InfoBox.SimpleView.OverlayPanel, -2, SIZE))
         table.insert(InfoBox.SimpleView.OverlayPanel.children, drawTextRow("Dry streak:", dryStreakValue, InfoBox.SimpleView.OverlayPanel, 23, SIZE))
         table.insert(InfoBox.SimpleView.OverlayPanel.children, drawTextRow("Unique chance:", uniqueChanceValue, InfoBox.SimpleView.OverlayPanel, 43, SIZE))
 
-        if InfoBox.ToggleOption == "click" then
+        if InfoBox.toggleOption == "click" then
             InfoBox.SimpleView.OverlayPanel.children[3].value:Subscribe(ui.Hook.ONCLICK, "TOGGLE_CHANCE_DISPLAY", function() InfoBox.ToggleChanceDisplay(true) end)
         end
-        if InfoBox.ToggleOption == "hover" then
+        if InfoBox.toggleOption == "hover" then
             InfoBox.SimpleView.OverlayPanel.children[3].value:Subscribe(ui.Hook.ONMOUSEOVER, "HOVER_START_CHANCE_DISPLAY", function() InfoBox.ToggleChanceDisplay(true) end)
             InfoBox.SimpleView.OverlayPanel.children[3].value:Subscribe(ui.Hook.ONMOUSELEAVE, "HOVER_END_CHANCE_DISPLAY", function() InfoBox.ToggleChanceDisplay(true) end)
         end
     else
-        table.insert(InfoBox.SimpleView.OverlayPanel.children, drawCompactText(uniqueChanceValue, string.format("Dry streak: %d", InfoBox.dryStreak), InfoBox.SimpleView.OverlayPanel))
+        table.insert(InfoBox.SimpleView.OverlayPanel.children, drawCompactText(uniqueChanceValue, string.format("Dry streak: %d", InfoBox.userData.dryStreak), InfoBox.SimpleView.OverlayPanel))
     end
 end
 
@@ -428,8 +439,8 @@ InfoBox.CreatePanel = function()
     })
 
     -- Create the panel within the SimpleView
-    local panelWidthOffset = Refs.DIRECTION_TABLE[InfoBox.CompactDirection].x * (Refs.SIZES["FULL"].WIDTH - Refs.SIZES["COMPACT"].WIDTH)
-    local panelHeightOffset = Refs.DIRECTION_TABLE[InfoBox.CompactDirection].y * (Refs.SIZES["FULL"].HEIGHT - Refs.SIZES["COMPACT"].HEIGHT)
+    local panelWidthOffset = Refs.DIRECTION_TABLE[InfoBox.compactDirection].x * (Refs.SIZES["FULL"].WIDTH - Refs.SIZES["COMPACT"].WIDTH)
+    local panelHeightOffset = Refs.DIRECTION_TABLE[InfoBox.compactDirection].y * (Refs.SIZES["FULL"].HEIGHT - Refs.SIZES["COMPACT"].HEIGHT)
     InfoBox.SimpleView.OverlayPanel = InfoBox.SimpleView:AddPanel({
         width = SIZE.WIDTH,
         height = SIZE.HEIGHT,
@@ -451,8 +462,8 @@ InfoBox.CreatePanel = function()
     --InfoBox.SimpleView.ClickBox:Subscribe(ui.Hook.ONCLICK, "CLICK_BOX_CLICK", DragAction(InfoBox.SimpleView, InfoBox.SimpleView.OverlayPanel, InfoBox.SimpleView.ClickBox))
 
     -- Create the toggle button for resizing the panel
-    local buttonWidthOffset = Refs.DIRECTION_TABLE[InfoBox.CompactDirection].x * (InfoBox.SimpleView.OverlayPanel.root.x)
-    local buttonHeightOffset = Refs.DIRECTION_TABLE[InfoBox.CompactDirection].y * (InfoBox.SimpleView.OverlayPanel.root.y - 8)
+    local buttonWidthOffset = Refs.DIRECTION_TABLE[InfoBox.compactDirection].x * (InfoBox.SimpleView.OverlayPanel.root.x)
+    local buttonHeightOffset = Refs.DIRECTION_TABLE[InfoBox.compactDirection].y * (InfoBox.SimpleView.OverlayPanel.root.y - 8)
     --[[InfoBox.SimpleView.ToggleButton = InfoBox.SimpleView:AddSprite(Plugin.resources.images.golden_zamorak, {
         x = SIZE.WIDTH - 16 + (InfoBox.isOpen and 0 or buttonWidthOffset - 4),
         y = (InfoBox.isOpen and 0 or buttonHeightOffset) - 4,
@@ -497,8 +508,8 @@ InfoBox.Destroy = function()
         PersistentDB:SetInt("PANEL_X", InfoBox.SimpleView.root.x)
         PersistentDB:SetInt("PANEL_Y", InfoBox.SimpleView.root.y)
         PersistentDB:SetBool("IS_OPEN", InfoBox.isOpen)
-        PersistentDB:SetString("CHANCE_DISPLAY", InfoBox.ChanceDisplay)
-        PersistentDB:SetString("COMPACT_DIRECTION", InfoBox.CompactDirection)
+        PersistentDB:SetString("CHANCE_DISPLAY", InfoBox.chanceDisplay)
+        PersistentDB:SetString("COMPACT_DIRECTION", InfoBox.compactDirection)
 
         if InfoBox.SimpleView.ClickBox then 
             InfoBox.SimpleView.ClickBox:Unsubscribe(ui.Hook.ONCLICK, "CLICK_BOX_CLICK")
