@@ -26,30 +26,36 @@ local function zamorakKilled(event)
         -- Calculate the difference between the new and old masked values. As it is a hidden value, due to plugin guidelines I cannot display it directly.
         local blmChange = newBLMValue - oldBLMValue 
         local lootOwedChange = newLootOwed - oldLootOwed
-
+        local noChanges = false
         
         -- Update the dry streak and BLM tracker based on the changed values
         if lootOwedChange > 0 and newRareOwed > 0 then
             -- Detects if a rare drop is owed, prepping the plugin to reset when looted.
-            InfoBox.uniqueRecieved = 1
-            PersistentDB:SetInt("UNIQUE_RECEIVED", InfoBox.uniqueRecieved)
-        elseif lootOwedChange < 0 and InfoBox.uniqueRecieved == 0 then
+            InfoBox.userData.uniqueRecieved = 1
+        elseif lootOwedChange < 0 and InfoBox.userData.uniqueRecieved == 0 then
             -- Change is positive or 0 and loot was awarded, this means the player did not get a unique drop and the dry streak should be incremented.
             -- Update the dry streak and BLM tracker based on the changed values.
-            InfoBox.dryStreak = InfoBox.dryStreak + 1
-            PersistentDB:SetInt("DRY_STREAK", InfoBox.dryStreak)
+            InfoBox.userData.dryStreak = InfoBox.userData.dryStreak + 1
             -- Increment the BLM tracker based on the change in the masked BLM value. If the dry streak is less than 10, change == 1 and the BLM tracker will not increment.
-            InfoBox.blmTracker = InfoBox.blmTracker + math.max(blmChange // 10, 0)
-            PersistentDB:SetInt("BLM_TRACKER", InfoBox.blmTracker)
-        elseif lootOwedChange < 0 and InfoBox.uniqueRecieved == 1 then
+            InfoBox.userData.blmTracker = InfoBox.userData.blmTracker + math.max(blmChange // 10, 0)
+        elseif lootOwedChange < 0 and InfoBox.userData.uniqueRecieved == 1 then
             -- A unique drop was received, reset the dry streak and BLM tracker.
-            InfoBox.dryStreak = 0
-            InfoBox.blmTracker = 0
-            InfoBox.uniqueRecieved = 0
-            PersistentDB:SetInt("DRY_STREAK", InfoBox.dryStreak)
-            PersistentDB:SetInt("BLM_TRACKER", InfoBox.blmTracker)
-            PersistentDB:SetInt("UNIQUE_RECEIVED", InfoBox.uniqueRecieved)
+            InfoBox.userData.dryStreak = 0
+            InfoBox.userData.blmTracker = 0
+            InfoBox.userData.uniqueRecieved = 0
+        else
+            noChanges = true
         end
+
+        if not noChanges then
+            -- Save the updated user data to the persistent database.
+            if InfoBox.trackingID ~= nil then
+                PersistentDB:SetStructuredData("USERDATA_" .. InfoBox.trackingID, InfoBox.userData)
+            else
+                PersistentDB:SetStructuredData("USERDATA_SHARED", InfoBox.userData)
+            end
+        end
+
         -- Refresh the InfoBox display if it exists.
         if InfoBox and InfoBox.SimpleView and InfoBox.SimpleView.OverlayPanel then
             InfoBox.DestroyText()
@@ -167,10 +173,14 @@ local function handleWindowSizeChange(event)
     InfoBox.InterfaceScale = newScale
 end
 
+--- Listens for changes in the boss tab and updates the UI accordingly.
 local function bossTabListener()
+    -- Retrieve the necessary UI components for the boss tab.
     local bossNameComponent = ui.Interfaces:GetComponent(id.Component.BSLAY_BOSS_INFO__BOSS_NAME)
     local descComponent = ui.Interfaces:GetComponent(id.Component.BSLAY_BOSS_INFO__BOSS_DESC_BUILD_LAYER)
     local dryStreakComponent = nil
+
+    -- Resets the dry streak and luck text elements if the component has been destroyed by the native UI updates.
     if descComponent ~= nil then
         dryStreakComponent = descComponent:GetChild(1, 1)
         if dryStreakComponent == nil and BossTab.dryStreakText ~= nil and BossTab.luckText ~= nil then
@@ -180,6 +190,8 @@ local function bossTabListener()
             BossTab.luckText = nil
         end
     end
+
+    -- Draw the boss info UI if the boss name component exists and the dry streak text is not already drawn.
     if bossNameComponent ~= nil and (BossTab.dryStreakText == nil or dryStreakComponent == nil) then
         Event.ServerLogic.Unsubscribe("BossTabListener")
         Event.Logic.Subscribe("ZamorakPageListener", function()
@@ -209,6 +221,7 @@ Events.WindowSizeListener = function()
     Event.WindowSizeChanged.Subscribe("windowSizeChanged", handleWindowSizeChange)
 end
 
+--- Sets up the event listener for the boss tab to detect when it becomes active.
 Events.StartBossTabListener = function()
     Event.ServerLogic.Subscribe("BossTabListener", bossTabListener)
 end
