@@ -66,7 +66,7 @@ PluginSettingsWindow.Settings = {
             storedKeys = { ["topLeft"] = 0, ["topRight"] = 1, ["bottomLeft"] = 2, ["bottomRight"] = 3 },
             selected = { type = 'fromStoredKey' },
             onChange = function(component, entryID, selected)
-                InfoBox.CompactDirection = PluginSettingsWindow.Settings.COMPACT_DIRECTION.controlOptions.storedValues[entryID]
+                InfoBox.compactDirection = PluginSettingsWindow.Settings.COMPACT_DIRECTION.controlOptions.storedValues[entryID]
                 if InfoBox.SimpleView then
                     InfoBox.Destroy()
                     InfoBox.CreatePanel()
@@ -89,7 +89,7 @@ PluginSettingsWindow.Settings = {
             storedKeys = { ["percent"] = 0, ["fraction"] = 1 },
             selected = { type = 'fromStoredKey' },
             onChange = function(component, entryID, selected)
-                InfoBox.ChanceDisplay = PluginSettingsWindow.Settings.CHANCE_DISPLAY.controlOptions.storedValues[entryID]
+                InfoBox.chanceDisplay = PluginSettingsWindow.Settings.CHANCE_DISPLAY.controlOptions.storedValues[entryID]
                 if InfoBox.SimpleView then
                     InfoBox.ToggleChanceDisplay(true)
                 end
@@ -112,26 +112,26 @@ PluginSettingsWindow.Settings = {
             selected = { type = 'fromStoredKey' },
             onChange = function(component, entryID, selected)
                 if InfoBox.SimpleView then
-                    if InfoBox.ToggleOption == "click" then
+                    if InfoBox.toggleOption == "click" then
                         InfoBox.SimpleView.OverlayPanel.children[3].value:Unsubscribe(ui.Hook.ONCLICK, "TOGGLE_CHANCE_DISPLAY")
                     end
-                    if InfoBox.ToggleOption == "hover" then
+                    if InfoBox.toggleOption == "hover" then
                         InfoBox.SimpleView.OverlayPanel.children[3].value:Unsubscribe(ui.Hook.ONMOUSEOVER, "HOVER_START_CHANCE_DISPLAY")
                         InfoBox.SimpleView.OverlayPanel.children[3].value:Unsubscribe(ui.Hook.ONMOUSELEAVE, "HOVER_END_CHANCE_DISPLAY")
                     end
 
-                    InfoBox.ToggleOption = PluginSettingsWindow.Settings.TOGGLE_DISPLAY_OPTION.controlOptions.storedValues[entryID]
-                    if InfoBox.ToggleOption == "click" then
+                    InfoBox.toggleOption = PluginSettingsWindow.Settings.TOGGLE_DISPLAY_OPTION.controlOptions.storedValues[entryID]
+                    if InfoBox.toggleOption == "click" then
                         InfoBox.SimpleView.OverlayPanel.children[3].value:Subscribe(ui.Hook.ONCLICK, "TOGGLE_CHANCE_DISPLAY", function() InfoBox.ToggleChanceDisplay(true) end)
                     end
-                    if InfoBox.ToggleOption == "hover" then
+                    if InfoBox.toggleOption == "hover" then
                         InfoBox.SimpleView.OverlayPanel.children[3].value:Subscribe(ui.Hook.ONMOUSEOVER, "HOVER_START_CHANCE_DISPLAY", function() InfoBox.ToggleChanceDisplay(true) end)
                         InfoBox.SimpleView.OverlayPanel.children[3].value:Subscribe(ui.Hook.ONMOUSELEAVE, "HOVER_END_CHANCE_DISPLAY", function() InfoBox.ToggleChanceDisplay(true) end)
                     end
                 else
-                    InfoBox.ToggleOption = PluginSettingsWindow.Settings.TOGGLE_DISPLAY_OPTION.controlOptions.storedValues[entryID]
+                    InfoBox.toggleOption = PluginSettingsWindow.Settings.TOGGLE_DISPLAY_OPTION.controlOptions.storedValues[entryID]
                 end
-                PersistentDB:SetString("TOGGLE_DISPLAY_OPTION", InfoBox.ToggleOption)
+                PersistentDB:SetString("TOGGLE_DISPLAY_OPTION", InfoBox.toggleOption)
             end
         }
     },
